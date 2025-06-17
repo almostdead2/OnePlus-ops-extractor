@@ -34,8 +34,8 @@ jobs:
 
       - name: Download OPS firmware
         run: |
-          wget -q -O firmware.ops ${{ github.event.inputs.ops_firmware_url }}
-        shell: bash
+          Invoke-WebRequest -Uri ${{ github.event.inputs.ops_firmware_url }} -OutFile firmware.ops
+        shell: powershell
 
       - name: Extract OPS firmware
         run: |
