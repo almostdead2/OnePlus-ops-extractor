@@ -32,12 +32,10 @@ jobs:
           cd oppo_decrypt
           pip3 install -r requirements.txt
 
-      - name: Download OPS firmware
+      - name: Download OPS firmwareMore actions
         run: |
-          Invoke-WebRequest -Uri ${{ github.event.inputs.ops_firmware_url }} `
-            -OutFile firmware.ops `
-            -Headers @{"User-Agent"="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.88 Safari/537.36"}
-        shell: powershell
+          curl -L firmware.ops ${{ github.event.inputs.ops_firmware_url }}
+        shell: bash
 
       - name: Extract OPS firmware
         run: |
