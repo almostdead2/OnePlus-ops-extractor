@@ -26,18 +26,11 @@ jobs:
         with:
           python-version: '3.x' # Use a suitable Python version, e.g., '3.9', '3.10', '3.11'
 
-      - name: Install dependencies for oppo_decrypt
-        run: |
-          pip install pycryptodome docopt
-
       - name: Clone oppo_decrypt tool
         run: |
           git clone https://github.com/bkerler/oppo_decrypt.git
           cd oppo_decrypt
-          # Some versions of oppo_decrypt might require a requirements.txt,
-          # though pycryptodome and docopt are the main ones.
-          # If there's a requirements.txt, you can add:
-          # pip install -r requirements.txt
+          pip3 install -r requirements.txt
 
       - name: Download OPS firmware
         run: |
@@ -46,7 +39,7 @@ jobs:
 
       - name: Extract OPS firmware
         run: |
-          python oppo_decrypt/opscrypto.py decrypt firmware.ops --extractdir=${{ github.event.inputs.output_directory }}
+          python3 oppo_decrypt/opscrypto.py decrypt firmware.ops --extractdir=${{ github.event.inputs.output_directory }}
         shell: bash
 
       - name: Upload extracted artifacts
