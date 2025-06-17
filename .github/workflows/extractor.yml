@@ -46,7 +46,7 @@ jobs:
 
       - name: Extract OPS firmware
         run: |
-          python oppo_decrypt/opscrypto.py decrypt firmware.ops ${{ github.event.inputs.output_directory }}
+          python oppo_decrypt/opscrypto.py decrypt firmware.ops --extractdir=${{ github.event.inputs.output_directory }}
         shell: bash
 
       - name: Upload extracted artifacts
