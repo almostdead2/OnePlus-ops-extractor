@@ -34,7 +34,7 @@ jobs:
 
       - name: Download OPS firmwareMore actions
         run: |
-          curl -L firmware.ops ${{ github.event.inputs.ops_firmware_url }}
+          curl -L -o firmware.ops ${{ github.event.inputs.ops_firmware_url }}
         shell: bash
 
       - name: Extract OPS firmware
