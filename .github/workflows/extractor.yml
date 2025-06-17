@@ -1,0 +1,57 @@
+name: Extract OnePlus OPS Firmware
+
+on:
+  workflow_dispatch:
+    inputs:
+      ops_firmware_url:
+        description: 'URL of the .ops firmware file to extract (e.g., from a direct download link)'
+        required: true
+        type: string
+      output_directory:
+        description: 'Directory to store extracted files (e.g., extracted_firmware)'
+        required: false
+        default: 'extracted_firmware'
+        type: string
+
+jobs:
+  extract_firmware:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x' # Use a suitable Python version, e.g., '3.9', '3.10', '3.11'
+
+      - name: Install dependencies for oppo_decrypt
+        run: |
+          pip install pycryptodome docopt
+
+      - name: Clone oppo_decrypt tool
+        run: |
+          git clone https://github.com/bkerler/oppo_decrypt.git
+          cd oppo_decrypt
+          # Some versions of oppo_decrypt might require a requirements.txt,
+          # though pycryptodome and docopt are the main ones.
+          # If there's a requirements.txt, you can add:
+          # pip install -r requirements.txt
+
+      - name: Download OPS firmware
+        run: |
+          wget -O firmware.ops ${{ github.event.inputs.ops_firmware_url }}
+        shell: bash
+
+      - name: Extract OPS firmware
+        run: |
+          python oppo_decrypt/opscrypto.py decrypt firmware.ops ${{ github.event.inputs.output_directory }}
+        shell: bash
+
+      - name: Upload extracted artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: extracted-firmware-${{ github.run_id }}
+          path: ${{ github.event.inputs.output_directory }}
+          retention-days: 7 # Optional: How long to keep the artifacts
