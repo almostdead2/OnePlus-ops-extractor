@@ -41,7 +41,7 @@ jobs:
 
       - name: Download OPS firmware
         run: |
-          wget -O firmware.ops ${{ github.event.inputs.ops_firmware_url }}
+          wget -q -O firmware.ops ${{ github.event.inputs.ops_firmware_url }}
         shell: bash
 
       - name: Extract OPS firmware
