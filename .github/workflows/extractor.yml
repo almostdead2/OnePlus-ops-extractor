@@ -40,7 +40,7 @@ jobs:
       - name: Extract OPS firmware
         run: |
           python3 oppo_decrypt/opscrypto.py decrypt firmware.ops --extractdir=${{ github.event.inputs.output_directory }}
-        shell: bash
+        shell: powershell
 
       - name: Upload extracted artifacts
         uses: actions/upload-artifact@v4
