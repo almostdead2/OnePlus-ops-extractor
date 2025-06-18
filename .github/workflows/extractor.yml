@@ -60,6 +60,36 @@ jobs:
           python3 oppo_decrypt/opscrypto.py decrypt "$OPS_FILE" --extractdir="${{ github.workspace }}/${{ github.event.inputs.output_directory }}"
           echo "extracted_output_path=${{ github.workspace }}/${{ github.event.inputs.output_directory }}" >> $GITHUB_OUTPUT
 
+      - name: Convert op1.img to raw and rename
+        run: |
+          EXTRACTED_DIR="${{ github.workspace }}/${{ github.event.inputs.output_directory }}"
+          SOURCE_SPARSE_IMG="$EXTRACTED_DIR/op1.img"
+          TEMP_RAW_IMG="$EXTRACTED_DIR/op1.raw.img"
+          SIMG2IMG_PATH="workflow_repo/simg2img"
+
+          echo "Checking for simg2img at: $SIMG2IMG_PATH"
+          if [ ! -f "$SIMG2IMG_PATH" ]; then
+            echo "ERROR: simg2img not found at $SIMG2IMG_PATH. Please ensure it's committed to your repository."
+            exit 1
+          fi
+
+          if [ ! -f "$SOURCE_SPARSE_IMG" ]; then
+            echo "ERROR: op1.img not found at $SOURCE_SPARSE_IMG. Cannot convert."
+            exit 1
+          fi
+
+          echo "Converting $SOURCE_SPARSE_IMG to raw ($TEMP_RAW_IMG)..."
+          "$SIMG2IMG_PATH" "$SOURCE_SPARSE_IMG" "$TEMP_RAW_IMG"
+
+          echo "Deleting original sparse op1.img..."
+          rm -f "$SOURCE_SPARSE_IMG"
+
+          echo "Renaming $TEMP_RAW_IMG to op1.img..."
+          mv "$TEMP_RAW_IMG" "$SOURCE_SPARSE_IMG"
+
+          echo "Conversion and renaming complete. Contents of output directory:"
+          ls -lh "$EXTRACTED_DIR"
+
       - name: Checkout Android Repository (Porting)
         uses: actions/checkout@v4
         with:
@@ -100,13 +130,6 @@ jobs:
           else
             echo "op1.img not found in Porting_repo, skipping commit and push."
           fi
-
-      - name: Upload extracted artifacts (original repo artifact)
-        uses: actions/upload-artifact@v4
-        with:
-          name: extracted-firmware-${{ github.run_id }}
-          path: ${{ github.event.inputs.output_directory }}
-          retention-days: 7
 
       - name: Clean up temporary files (Optional)
         run: |
