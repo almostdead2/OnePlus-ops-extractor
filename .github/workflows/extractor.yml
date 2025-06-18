@@ -127,6 +127,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41899989+github-actions[bot]@users.noreply.github.com"
 
+          git lfs install --local
+          git lfs track "op1.img"
+
           if [ -f "op1.img" ]; then
             git add op1.img
             git commit -m "feat: Update op1.img from firmware extraction workflow run ${{ github.run_id }}"
