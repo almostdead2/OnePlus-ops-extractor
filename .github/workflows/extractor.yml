@@ -67,6 +67,8 @@ jobs:
           TEMP_RAW_IMG="$EXTRACTED_DIR/op1.raw.img"
           SIMG2IMG_PATH="workflow_repo/simg2img"
 
+          export LD_LIBRARY_PATH="workflow_repo/lib:$LD_LIBRARY_PATH"
+
           echo "Ensuring simg2img has execute permissions..."
           chmod +x "$SIMG2IMG_PATH"
 
