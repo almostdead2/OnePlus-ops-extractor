@@ -67,6 +67,9 @@ jobs:
           TEMP_RAW_IMG="$EXTRACTED_DIR/op1.raw.img"
           SIMG2IMG_PATH="workflow_repo/simg2img"
 
+          echo "Ensuring simg2img has execute permissions..."
+          chmod +x "$SIMG2IMG_PATH"
+
           echo "Checking for simg2img at: $SIMG2IMG_PATH"
           if [ ! -f "$SIMG2IMG_PATH" ]; then
             echo "ERROR: simg2img not found at $SIMG2IMG_PATH. Please ensure it's committed to your repository."
