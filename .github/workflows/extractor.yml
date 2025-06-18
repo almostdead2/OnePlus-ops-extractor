@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       ops_firmware_url:
-        description: 'URL of the .ops firmware file to extract (e.g., from a direct download link)'
+        description: 'URL of the firmware ZIP file (containing the .ops file)'
         required: true
         type: string
       output_directory:
@@ -15,7 +15,7 @@ on:
 
 jobs:
   extract_firmware:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
@@ -24,7 +24,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x' # Use a suitable Python version, e.g., '3.9', '3.10', '3.11'
+          python-version: '3.x'
 
       - name: Clone oppo_decrypt tool
         run: |
@@ -32,19 +32,38 @@ jobs:
           cd oppo_decrypt
           pip3 install -r requirements.txt
 
-      - name: Download OPS firmwareMore actions
+      - name: Download Firmware ZIP
         run: |
-          curl -L -o firmware.ops ${{ github.event.inputs.ops_firmware_url }}
-        shell: bash
+          curl -L -o firmware.zip "${{ github.event.inputs.ops_firmware_url }}"
 
-      - name: Extract OPS firmware
+      - name: Unzip Firmware Archive
         run: |
-          python3 oppo_decrypt/opscrypto.py decrypt firmware.ops --extractdir=${{ github.event.inputs.output_directory }}
-        shell: powershell
+          mkdir temp_firmware_unzip
+          unzip firmware.zip -d temp_firmware_unzip/
+          echo "Contents of temp_firmware_unzip:"
+          ls -R temp_firmware_unzip/
+
+      - name: Find and Extract OPS firmware
+        run: |
+          OPS_FILE=$(find temp_firmware_unzip/ -name "*.ops" -print -quit)
+
+          if [ -z "$OPS_FILE" ]; then
+              echo "ERROR: No .ops file found in the unzipped archive!"
+              exit 1
+          fi
+
+          echo "Found OPS file: $OPS_FILE"
+
+          python3 oppo_decrypt/opscrypto.py decrypt "$OPS_FILE" --extractdir="${{ github.event.inputs.output_directory }}"
 
       - name: Upload extracted artifacts
         uses: actions/upload-artifact@v4
         with:
           name: extracted-firmware-${{ github.run_id }}
           path: ${{ github.event.inputs.output_directory }}
-          retention-days: 7 # Optional: How long to keep the artifacts
+          retention-days: 7
+
+      - name: Clean up temporary files (Optional)
+        run: |
+          rm firmware.zip
+          rm -rf temp_firmware_unzip/
