@@ -18,8 +18,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout firmware extraction repository
         uses: actions/checkout@v4
+        with:
+          path: workflow_repo
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -38,12 +40,13 @@ jobs:
 
       - name: Unzip Firmware Archive
         run: |
-          mkdir temp_firmware_unzip
-          unzip firmware.zip -d temp_firmware_unzip/
+          mkdir -p temp_firmware_unzip
+          unzip -o firmware.zip -d temp_firmware_unzip/
           echo "Contents of temp_firmware_unzip:"
           ls -R temp_firmware_unzip/
 
       - name: Find and Extract OPS firmware
+        id: extract_ops_step
         run: |
           OPS_FILE=$(find temp_firmware_unzip/ -name "*.ops" -print -quit)
 
@@ -54,9 +57,51 @@ jobs:
 
           echo "Found OPS file: $OPS_FILE"
 
-          python3 oppo_decrypt/opscrypto.py decrypt "$OPS_FILE" --extractdir="${{ github.event.inputs.output_directory }}"
+          python3 oppo_decrypt/opscrypto.py decrypt "$OPS_FILE" --extractdir="${{ github.workspace }}/${{ github.event.inputs.output_directory }}"
+          echo "extracted_output_path=${{ github.workspace }}/${{ github.event.inputs.output_directory }}" >> $GITHUB_OUTPUT
 
-      - name: Upload extracted artifacts
+      - name: Checkout Android Repository (Porting)
+        uses: actions/checkout@v4
+        with:
+          repository: almostdead2/Porting
+          token: ${{ secrets.REPO_PUSH_TOKEN }}
+          ref: test1
+          path: Porting_repo
+
+      - name: Copy op1.img to Android Repository
+        run: |
+          SOURCE_FILE="${{ steps.extract_ops_step.outputs.extracted_output_path }}/op1.img"
+          DEST_DIR="Porting_repo/"
+
+          echo "Attempting to copy from: $SOURCE_FILE"
+          echo "To destination directory: $DEST_DIR"
+
+          if [ ! -f "$SOURCE_FILE" ]; then
+            echo "ERROR: op1.img not found at $SOURCE_FILE after extraction!"
+            exit 1
+          fi
+
+          mkdir -p "$DEST_DIR"
+          cp -f "$SOURCE_FILE" "$DEST_DIR"
+
+          echo "Copied op1.img to $DEST_DIR"
+
+      - name: Commit and Push to Android Repository
+        run: |
+          cd Porting_repo
+          git config user.name "github-actions[bot]"
+          git config user.email "41899989+github-actions[bot]@users.noreply.github.com"
+
+          if [ -f "op1.img" ]; then
+            git add op1.img
+            git commit -m "feat: Update op1.img from firmware extraction workflow run ${{ github.run_id }}"
+            git push origin test1
+            echo "Successfully pushed op1.img to Porting/test1"
+          else
+            echo "op1.img not found in Porting_repo, skipping commit and push."
+          fi
+
+      - name: Upload extracted artifacts (original repo artifact)
         uses: actions/upload-artifact@v4
         with:
           name: extracted-firmware-${{ github.run_id }}
@@ -67,3 +112,5 @@ jobs:
         run: |
           rm firmware.zip
           rm -rf temp_firmware_unzip/
+          rm -rf workflow_repo/
+          rm -rf Porting_repo/
