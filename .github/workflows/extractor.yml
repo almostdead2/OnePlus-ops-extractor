@@ -17,11 +17,15 @@ jobs:
   extract_firmware:
     runs-on: ubuntu-latest
 
+    permissions: # Add these permissions for the default GITHUB_TOKEN
+      contents: write # Needed for creating and pushing tags (for the release)
+      releases: write # Needed for creating releases and uploading assets
+
     steps:
       - name: Checkout firmware extraction repository
         uses: actions/checkout@v4
         with:
-          path: workflow_repo
+          path: workflow_repo # This is where your current repository (with the .yml file) is checked out
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -56,35 +60,54 @@ jobs:
           fi
 
           echo "Found OPS file: $OPS_FILE"
+          # Define the target directory within your current repository's checkout path
+          # We'll put it directly into workflow_repo/extracted_firmware_output
+          EXTRACT_TARGET_DIR="workflow_repo/extracted_firmware_output"
+          mkdir -p "$EXTRACT_TARGET_DIR" # Ensure the directory exists
 
-          python3 oppo_decrypt/opscrypto.py decrypt "$OPS_FILE" --extractdir="${{ github.workspace }}/${{ github.event.inputs.output_directory }}"
-          echo "extracted_output_path=${{ github.workspace }}/${{ github.event.inputs.output_directory }}" >> $GITHUB_OUTPUT
+          python3 oppo_decrypt/opscrypto.py decrypt "$OPS_FILE" --extractdir="$EXTRACT_TARGET_DIR"
+          echo "extracted_output_path=$EXTRACT_TARGET_DIR" >> $GITHUB_OUTPUT # Keep this output for consistency if needed elsewhere
 
-      # --- START: New Steps for GitHub Release ---
+          # Verify op1.img exists after extraction in the target location
+          if [ ! -f "$EXTRACT_TARGET_DIR/op1.img" ]; then
+              echo "ERROR: op1.img not found at $EXTRACT_TARGET_DIR/op1.img after extraction!"
+              exit 1
+          fi
+          echo "op1.img extracted to $EXTRACT_TARGET_DIR/op1.img"
+
+
+      # --- REMOVE the 'Checkout Android Repository (Porting)' step here ---
+      # --- REMOVE the 'Copy op1.img to Android Repository' step here ---
+      # --- REMOVE the 'Commit and Push to Android Repository' step here ---
+
+
+      # --- START: New Steps for GitHub Release (Adjusted for current repo) ---
       - name: Generate Release Tag
         id: generate_tag
         run: |
-          # Change to the repository directory to ensure git commands work correctly
-          cd Porting_repo
+          # Git commands are run relative to the current working directory.
+          # Since the repo is checked out into 'workflow_repo', we cd into it.
+          cd workflow_repo
           # Generate a dynamic tag based on the current date and run ID
           RELEASE_TAG="op1-release-$(date +%Y%m%d%H%M%S)-${GITHUB_RUN_ID}"
           echo "Generated Release Tag: $RELEASE_TAG"
           # Set the tag as an output for subsequent steps
           echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
-          # Configure git for tagging (if not already done by previous steps)
+          # Configure git for tagging
           git config user.name "github-actions[bot]"
           git config user.email "41899989+github-actions[bot]@users.noreply.github.com"
-          # Create and push the tag to the repository
+          # Create and push the tag to the current repository
           git tag "$RELEASE_TAG"
           git push origin "$RELEASE_TAG"
         env:
-          GITHUB_TOKEN: ${{ secrets.REPO_PUSH_TOKEN }}
+          # Use the default GITHUB_TOKEN which usually has sufficient permissions for the current repo
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create GitHub Release
         id: create_release
         uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.REPO_PUSH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.generate_tag.outputs.release_tag }} # Use the tag generated in the previous step
           release_name: Release ${{ steps.generate_tag.outputs.release_tag }}
@@ -98,16 +121,19 @@ jobs:
       - name: Upload op1.img to Release
         uses: actions/upload-release-asset@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.REPO_PUSH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # URL provided by the create_release step
-          asset_path: Porting_repo/op1.img # The path to the op1.img file within the Porting_repo workspace
+          asset_path: workflow_repo/extracted_firmware_output/op1.img # UPDATED PATH: Point to the extracted op1.img within the current repo's checkout
           asset_name: op1.img # The name for the file on the release
           asset_content_type: application/octet-stream # Standard content type for a binary file
+      # --- END: New Steps for GitHub Release ---
 
       - name: Clean up temporary files (Optional)
         run: |
           rm firmware.zip
           rm -rf temp_firmware_unzip/
-          rm -rf workflow_repo/
-          rm -rf Porting_repo/
+          # The 'workflow_repo' directory now contains 'extracted_firmware_output'
+          # If you want to clean up 'extracted_firmware_output', you can explicitly remove it:
+          rm -rf workflow_repo/extracted_firmware_output/
+          # Keep 'workflow_repo' itself as it's the main repo checkout, don't remove it entirely.
