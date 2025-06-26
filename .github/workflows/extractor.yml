@@ -48,7 +48,7 @@ jobs:
       - name: Find op1.img
         id: find_img
         run: |
-          OP1_IMG=$(find extracted -name "op1.img" -print -quit)
+          OP1_IMG=$(find . -name "op1.img" -print -quit)
           if [ -z "$OP1_IMG" ]; then
             echo "op1.img not found!"
             exit 1
