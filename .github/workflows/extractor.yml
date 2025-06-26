@@ -17,15 +17,15 @@ jobs:
   extract_firmware:
     runs-on: ubuntu-latest
 
-    permissions: # Add these permissions for the default GITHUB_TOKEN
-      contents: write # Needed for creating and pushing tags (for the release)
-      releases: write # Needed for creating releases and uploading assets
+    permissions:
+      contents: write
+      releases: write
 
     steps:
       - name: Checkout firmware extraction repository
         uses: actions/checkout@v4
         with:
-          path: workflow_repo # This is where your current repository (with the .yml file) is checked out
+          path: workflow_repo
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -61,10 +61,10 @@ jobs:
 
           echo "Found OPS file: $OPS_FILE"
           EXTRACT_TARGET_DIR="workflow_repo/extracted_firmware_output"
-          mkdir -p "$EXTRACT_TARGET_DIR" # Ensure the directory exists
+          mkdir -p "$EXTRACT_TARGET_DIR"
 
           python3 oppo_decrypt/opscrypto.py decrypt "$OPS_FILE" --extractdir="$EXTRACT_TARGET_DIR"
-          echo "extracted_output_path=$EXTRACT_TARGET_DIR" >> $GITHUB_OUTPUT # Keep this output for consistency if needed elsewhere
+          echo "extracted_output_path=$EXTRACT_TARGET_DIR" >> $GITHUB_OUTPUT
 
           if [ ! -f "$EXTRACT_TARGET_DIR/op1.img" ]; then
               echo "ERROR: op1.img not found at $EXTRACT_TARGET_DIR/op1.img after extraction!"
@@ -92,24 +92,24 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ steps.generate_tag.outputs.release_tag }} # Use the tag generated in the previous step
+          tag_name: ${{ steps.generate_tag.outputs.release_tag }}
           release_name: Release ${{ steps.generate_tag.outputs.release_tag }}
           body: |
             Automatic release of op1.img from firmware extraction workflow.
             This release was triggered by a workflow_dispatch event.
             Workflow Run ID: ${{ github.run_id }}
-          draft: false # Set to true if you want to manually publish later
-          prerelease: false # Set to true if this is a pre-release
+          draft: false
+          prerelease: false
 
       - name: Upload op1.img to Release
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # URL provided by the create_release step
-          asset_path: workflow_repo/extracted_firmware_output/op1.img # UPDATED PATH: Point to the extracted op1.img within the current repo's checkout
-          asset_name: op1.img # The name for the file on the release
-          asset_content_type: application/octet-stream # Standard content type for a binary file
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: workflow_repo/extracted_firmware_output/op1.img
+          asset_name: op1.img
+          asset_content_type: application/octet-stream
 
       - name: Clean up temporary files (Optional)
         run: |
