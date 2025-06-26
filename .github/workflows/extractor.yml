@@ -1,4 +1,4 @@
-name: Extract OnePlus OPS Firmware
+name: Extract OnePlus OPS Firmware and Release op1.img
 
 on:
   workflow_dispatch:
@@ -13,17 +13,13 @@ on:
         default: 'extracted_firmware'
         type: string
 
-permissions:
-  contents: write
-
 jobs:
   extract_firmware:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout firmware extraction repository
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          path: workflow_repo
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -53,64 +49,34 @@ jobs:
           OPS_FILE=$(find temp_firmware_unzip/ -name "*.ops" -print -quit)
 
           if [ -z "$OPS_FILE" ]; then
-              echo "ERROR: No .ops file found in the unzipped archive!"
-              exit 1
+            echo "ERROR: No .ops file found in the unzipped archive!"
+            exit 1
           fi
 
           echo "Found OPS file: $OPS_FILE"
-          EXTRACT_TARGET_DIR="workflow_repo/extracted_firmware_output"
-          mkdir -p "$EXTRACT_TARGET_DIR"
 
-          python3 oppo_decrypt/opscrypto.py decrypt "$OPS_FILE" --extractdir="$EXTRACT_TARGET_DIR"
-          echo "extracted_output_path=$EXTRACT_TARGET_DIR" >> $GITHUB_OUTPUT
+          python3 oppo_decrypt/opscrypto.py decrypt "$OPS_FILE" --extractdir="${{ github.workspace }}/${{ github.event.inputs.output_directory }}"
+          echo "extracted_output_path=${{ github.workspace }}/${{ github.event.inputs.output_directory }}" >> $GITHUB_OUTPUT
 
-          if [ ! -f "$EXTRACT_TARGET_DIR/op1.img" ]; then
-              echo "ERROR: op1.img not found at $EXTRACT_TARGET_DIR/op1.img after extraction!"
-              exit 1
-          fi
-          echo "op1.img extracted to $EXTRACT_TARGET_DIR/op1.img"
-
-      - name: Generate Release Tag
-        id: generate_tag
+      - name: Set output path for op1.img
+        id: op1_img_path
         run: |
-          cd workflow_repo
-          RELEASE_TAG="op1-release-$(date +%Y%m%d%H%M%S)-${GITHUB_RUN_ID}"
-          echo "Generated Release Tag: $RELEASE_TAG"
-          echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
-          git config user.name "github-actions[bot]"
-          git config user.email "41899989+github-actions[bot]@users.noreply.github.com"
-          git tag "$RELEASE_TAG"
-          git push origin "$RELEASE_TAG"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OP1_IMG=$(find "${{ steps.extract_ops_step.outputs.extracted_output_path }}" -name "op1.img" -print -quit)
+          if [ -z "$OP1_IMG" ]; then
+            echo "ERROR: op1.img not found after extraction."
+            exit 1
+          fi
+          echo "op1_img=$OP1_IMG" >> $GITHUB_OUTPUT
 
-      - name: Create GitHub Release
-        id: create_release
-        uses: actions/create-release@v1
+      - name: Create GitHub Release and Upload op1.img
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.op1_img_path.outputs.op1_img }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.generate_tag.outputs.release_tag }}
-          release_name: Release ${{ steps.generate_tag.outputs.release_tag }}
-          body: |
-            Automatic release of op1.img from firmware extraction workflow.
-            This release was triggered by a workflow_dispatch event.
-            Workflow Run ID: ${{ github.run_id }}
-          draft: false
-          prerelease: false
-
-      - name: Upload op1.img to Release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: workflow_repo/extracted_firmware_output/op1.img
-          asset_name: op1.img
-          asset_content_type: application/octet-stream
 
       - name: Clean up temporary files (Optional)
         run: |
           rm firmware.zip
           rm -rf temp_firmware_unzip/
-          rm -rf workflow_repo/extracted_firmware_output/
+          rm -rf oppo_decrypt/
