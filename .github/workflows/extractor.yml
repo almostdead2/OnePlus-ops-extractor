@@ -36,7 +36,6 @@ jobs:
           unzip -o firmware.zip -d temp_firmware_unzip/
 
       - name: Find and Extract OPS file
-        id: extract_ops
         run: |
           OPS_FILE=$(find temp_firmware_unzip/ -name "*.ops" -print -quit)
           if [ -z "$OPS_FILE" ]; then
@@ -56,10 +55,16 @@ jobs:
           fi
           echo "op1_img=$OP1_IMG" >> $GITHUB_OUTPUT
 
+      - name: Generate automatic tag
+        id: tag
+        run: |
+          TAG="auto-op1img-$(date -u +'%Y%m%d-%H%M%S')"
+          echo "tag_name=$TAG" >> $GITHUB_OUTPUT
+
       - name: Create GitHub Release and Upload op1.img
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "auto-op1img-${{ github.run_id }}"
+          tag_name: ${{ steps.tag.outputs.tag_name }}
           name: "Auto Release of op1.img"
           files: ${{ steps.find_img.outputs.op1_img }}
         env:
