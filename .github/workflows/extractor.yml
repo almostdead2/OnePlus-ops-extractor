@@ -1,22 +1,16 @@
-name: Extract OnePlus OPS Firmware and Release op1.img
+name: Auto Release op1.img
 
 on:
   workflow_dispatch:
     inputs:
       ops_firmware_url:
-        description: 'URL of the firmware ZIP file (containing the .ops file)'
+        description: 'URL to the firmware ZIP (containing the .ops file)'
         required: true
-        type: string
-      output_directory:
-        description: 'Directory to store extracted files (e.g., extracted_firmware)'
-        required: false
-        default: 'extracted_firmware'
         type: string
 
 jobs:
-  extract_firmware:
+  release-op1-img:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -40,30 +34,24 @@ jobs:
         run: |
           mkdir -p temp_firmware_unzip
           unzip -o firmware.zip -d temp_firmware_unzip/
-          echo "Contents of temp_firmware_unzip:"
-          ls -R temp_firmware_unzip/
 
-      - name: Find and Extract OPS firmware
-        id: extract_ops_step
+      - name: Find and Extract OPS file
+        id: extract_ops
         run: |
           OPS_FILE=$(find temp_firmware_unzip/ -name "*.ops" -print -quit)
-
           if [ -z "$OPS_FILE" ]; then
-            echo "ERROR: No .ops file found in the unzipped archive!"
+            echo "No .ops file found!"
             exit 1
           fi
+          mkdir extracted
+          python3 oppo_decrypt/opscrypto.py decrypt "$OPS_FILE" --extractdir=extracted
 
-          echo "Found OPS file: $OPS_FILE"
-
-          python3 oppo_decrypt/opscrypto.py decrypt "$OPS_FILE" --extractdir="${{ github.workspace }}/${{ github.event.inputs.output_directory }}"
-          echo "extracted_output_path=${{ github.workspace }}/${{ github.event.inputs.output_directory }}" >> $GITHUB_OUTPUT
-
-      - name: Set output path for op1.img
-        id: op1_img_path
+      - name: Find op1.img
+        id: find_img
         run: |
-          OP1_IMG=$(find "${{ steps.extract_ops_step.outputs.extracted_output_path }}" -name "op1.img" -print -quit)
+          OP1_IMG=$(find extracted -name "op1.img" -print -quit)
           if [ -z "$OP1_IMG" ]; then
-            echo "ERROR: op1.img not found after extraction."
+            echo "op1.img not found!"
             exit 1
           fi
           echo "op1_img=$OP1_IMG" >> $GITHUB_OUTPUT
@@ -71,12 +59,8 @@ jobs:
       - name: Create GitHub Release and Upload op1.img
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ steps.op1_img_path.outputs.op1_img }}
+          tag_name: "auto-op1img-${{ github.run_id }}"
+          name: "Auto Release of op1.img"
+          files: ${{ steps.find_img.outputs.op1_img }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Clean up temporary files (Optional)
-        run: |
-          rm firmware.zip
-          rm -rf temp_firmware_unzip/
-          rm -rf oppo_decrypt/
