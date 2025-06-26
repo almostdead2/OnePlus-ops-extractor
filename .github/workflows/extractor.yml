@@ -13,13 +13,13 @@ on:
         default: 'extracted_firmware'
         type: string
 
+permissions:
+  contents: write
+  releases: write
+
 jobs:
   extract_firmware:
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
-      releases: write
 
     steps:
       - name: Checkout firmware extraction repository
