@@ -1,4 +1,4 @@
-name: Auto Release op1.img
+name: Extract OPS and Release op1.img
 
 on:
   workflow_dispatch:
@@ -68,7 +68,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag_name }}
-          name: "Auto Release of op1.img"
+          name: "Release of op1.img"
           files: ${{ steps.find_img.outputs.op1_img }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
