@@ -20,7 +20,6 @@ permissions:
 jobs:
   extract_firmware:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout firmware extraction repository
         uses: actions/checkout@v4
